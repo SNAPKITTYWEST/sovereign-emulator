@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SnapKitty — Sovereign Agent Emulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:"Space Mono",monospace;background:#0d0d0f;color:#e8e8f0;display:flex;flex-direction:column}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#0a0a0e}
+::-webkit-scrollbar-thumb{background:#1e1e2a;border-radius:2px}
+button{cursor:pointer;font-family:"Space Mono",monospace}
+input{font-family:"Space Mono",monospace}
+
+/* Top bar */
+#topbar{height:36px;background:#0a0a0e;border-bottom:1px solid #1e1e2a;display:flex;align-items:center;padding:0 12px;gap:16px;flex-shrink:0}
+#topbar .logo{color:#00ff88;font-weight:700;font-size:11px;letter-spacing:2px}
+#topbar .ver{color:#444;font-size:10px}
+#topbar .menus{display:flex;gap:16px;margin-left:auto}
+#topbar .menus span{color:#888;font-size:10px;cursor:pointer}
+#topbar .status{display:flex;gap:12px;margin-left:auto}
+#topbar .status span{color:#444;font-size:10px}
+
+/* Main body */
+#main{flex:1;display:flex;overflow:hidden}
+
+/* LEFT: Project tree */
+#left{width:220px;background:#131318;border-right:1px solid #1e1e2a;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#left .panel-title{padding:8px 10px;border-bottom:1px solid #1e1e2a;font-size:9px;color:#888;letter-spacing:1.5px;text-transform:uppercase}
+#tree{flex:1;overflow-y:auto}
+.group-header{padding:5px 8px;font-size:9px;color:#888;letter-spacing:1.5px;cursor:pointer;display:flex;align-items:center;gap:4px;border-bottom:1px solid #1e1e2a18;user-select:none}
+.group-header .count{margin-left:auto;color:#333;font-size:8px}
+.group-header .arrow{font-size:7px;transition:transform .15s}
+.group-header.open .arrow{transform:rotate(90deg)}
+.agent-row{padding:5px 10px 5px 22px;cursor:pointer;font-size:10px;display:flex;align-items:center;gap:7px;user-select:none;transition:background .15s;border-left:2px solid transparent}
+.agent-row:hover{background:#ffffff08}
+.agent-row.active{border-left-color:var(--agent-color);background:color-mix(in srgb,var(--agent-color) 10%,transparent)}
+.agent-row .name{color:#e8e8f0}
+.agent-row.active .name{color:var(--agent-color)}
+.agent-row .dot{margin-left:auto;width:5px;height:5px;border-radius:50%;background:var(--agent-color);flex-shrink:0;display:none}
+.agent-row.has-msgs .dot{display:block}
+
+/* CENTER */
+#center{flex:1;display:flex;align-items:center;justify-content:center;background:#0d0d0f;position:relative;overflow:hidden}
+#canvas-grid{position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,#1e1e2a22 0,#1e1e2a22 1px,transparent 1px,transparent 32px),repeating-linear-gradient(90deg,#1e1e2a22 0,#1e1e2a22 1px,transparent 1px,transparent 32px)}
+#phone-label{position:absolute;top:16px;left:50%;transform:translateX(-50%);font-size:9px;color:#333;letter-spacing:2px;white-space:nowrap}
+
+/* PHONE FRAME */
+#phone{width:300px;height:630px;background:#1a1a1a;border-radius:44px;box-shadow:0 0 0 2px #333,0 0 0 4px #222,0 30px 80px rgba(0,0,0,.8);position:relative;flex-shrink:0;z-index:1;display:flex;flex-direction:column;overflow:hidden;border:1px solid #2a2a2a;transition:box-shadow .3s}
+.side-btn{position:absolute;width:3px;height:40px;background:#333;border-radius:2px 0 0 2px}
+.side-btn-right{right:-3px;top:140px;height:70px;border-radius:0 2px 2px 0}
+#screen{margin:10px 6px 6px;flex:1;background:#000;border-radius:36px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+#punch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:10px;height:10px;background:#000;border-radius:50%;border:1px solid #222;z-index:10}
+#statusbar{height:28px;background:#050508;display:flex;align-items:center;padding:0 16px;flex-shrink:0;z-index:5}
+#clock{font-size:9px;color:#e8e8f0;font-weight:700}
+#status-icons{display:flex;align-items:center;gap:5px;margin-left:auto}
+#screen-content{flex:1;position:relative;overflow:hidden}
+
+/* HOME SCREEN */
+#home-screen{height:100%;background:linear-gradient(160deg,#050510,#0a0a18);display:flex;flex-direction:column}
+#home-label{padding:8px 14px 4px;font-size:9px;color:#333}
+#app-grid{padding:4px 10px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;flex:1;align-content:start}
+.app-icon{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;user-select:none}
+.app-icon .icon-wrap{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:transform .1s}
+.app-icon:active .icon-wrap{transform:scale(.9)}
+.app-icon span{font-size:7.5px;color:#888;text-align:center;line-height:1.2}
+#dock{height:72px;border-top:1px solid #1e1e2a;display:flex;align-items:center;justify-content:space-around;padding:0 20px}
+.dock-icon{width:42px;height:42px;border-radius:12px;background:#1e1e2a;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer}
+#navbar-home{height:28px;display:flex;align-items:center;justify-content:space-around;padding:0 40px}
+#navbar-home span{color:#444;font-size:14px;cursor:pointer}
+
+/* CHAT SCREEN */
+#chat-screen{height:100%;display:flex;flex-direction:column;background:#030306}
+#chat-appbar{padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #1e1e2a;background:#050508;flex-shrink:0}
+#chat-back{background:none;border:none;font-size:14px;padding:0}
+#chat-agent-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+#chat-agent-name{font-size:11px;font-weight:700}
+#chat-agent-role{font-size:8px;color:#888}
+#chat-status-dot{margin-left:auto;width:7px;height:7px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;flex-shrink:0}
+#messages{flex:1;overflow-y:auto;padding:10px 10px 6px;display:flex;flex-direction:column;gap:6px}
+.msg{display:flex}
+.msg.user{justify-content:flex-end}
+.msg.agent{justify-content:flex-start}
+.bubble{max-width:78%;padding:6px 9px;font-size:9.5px;line-height:1.5;word-break:break-word}
+.bubble.user{background:#0a84ff;border-radius:12px 12px 2px 12px;color:#fff}
+.bubble.agent{border-radius:12px 12px 12px 2px;color:#e8e8f0}
+#empty-state{text-align:center;margin-top:40px;color:#444;font-size:9px}
+#empty-icon{font-size:28px;margin-bottom:8px}
+#typing{display:flex;justify-content:flex-start}
+.typing-bubble{padding:7px 12px;border-radius:12px 12px 12px 2px;font-size:12px}
+#input-bar{padding:6px 8px;border-top:1px solid #1e1e2a;display:flex;gap:6px;background:#050508;flex-shrink:0}
+#msg-input{flex:1;background:#0a0a14;border:1px solid #1e1e2a;border-radius:20px;padding:6px 10px;color:#e8e8f0;font-size:9.5px;font-family:"Space Mono",monospace;outline:none}
+#send-btn{width:30px;height:30px;border-radius:50%;border:none;font-size:13px;flex-shrink:0;transition:opacity .15s}
+#send-btn:disabled{opacity:.4}
+#navbar-chat{height:24px;display:flex;align-items:center;justify-content:space-around;padding:0 40px}
+#navbar-chat span{color:#444;font-size:13px;cursor:pointer}
+
+/* INCOMING CALL */
+#incoming-call{position:absolute;inset:0;background:rgba(0,0,0,.95);z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#call-icon{font-size:40px}
+#call-name{font-size:14px;font-weight:700}
+#call-role{font-size:9px;color:#888}
+#call-label{font-size:9px;color:#333}
+#call-btns{display:flex;gap:24px;margin-top:24px}
+#call-btns button{width:52px;height:52px;border-radius:50%;border:none;font-size:20px}
+
+/* RIGHT: Inspector */
+#right{width:240px;background:#131318;border-left:1px solid #1e1e2a;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#right .panel-title{padding:8px 10px;border-bottom:1px solid #1e1e2a;font-size:9px;color:#888;letter-spacing:1.5px;text-transform:uppercase}
+#inspector-card{padding:12px 10px;border-bottom:1px solid #1e1e2a}
+#inspector-agent-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+#inspector-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+#inspector-name{font-size:11px;font-weight:700}
+#inspector-role{font-size:8.5px;color:#888}
+#inspector-group{font-size:7.5px;color:#333}
+.prop-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e1e2a20}
+.prop-key{font-size:8.5px;color:#444}
+.prop-val{font-size:8.5px;color:#e8e8f0}
+.prop-val.online{color:#00ff88}
+#gate-scores{padding:10px;border-bottom:1px solid #1e1e2a}
+#gate-scores .section-label{font-size:9px;color:#888;letter-spacing:1px;margin-bottom:8px}
+.gate-row{margin-bottom:6px}
+.gate-header{display:flex;justify-content:space-between;margin-bottom:2px}
+.gate-label{font-size:8px;color:#444}
+.gate-val{font-size:8px}
+.gate-bar-bg{height:3px;background:#1e1e2a;border-radius:2px}
+.gate-bar-fill{height:100%;border-radius:2px;transition:width .5s}
+#agent-grid-panel{flex:1;overflow-y:auto;padding:8px}
+#agent-grid-panel .section-label{font-size:9px;color:#888;letter-spacing:1px;margin-bottom:6px}
+#agent-grid-icons{display:flex;flex-wrap:wrap;gap:5px}
+.grid-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:border .15s}
+
+/* BOTTOM: Logcat */
+#bottom{height:130px;border-top:1px solid #1e1e2a;background:#080810;flex-shrink:0;display:flex;flex-direction:column}
+#logcat-header{padding:4px 10px;border-bottom:1px solid #1e1e2a;display:flex;align-items:center;gap:12px;flex-shrink:0}
+#logcat-header .label{font-size:9px;color:#888;letter-spacing:1.5px}
+#logcat-header .subject{font-size:8px;color:#333}
+#nats-status{font-size:8px}
+#logcat-body{flex:1;overflow-y:auto;padding:4px 10px}
+.log-entry{font-size:8.5px;line-height:1.7}
+.log-ts{color:#333}
+.log-subject{color:#0a84ff}
+.log-subject.error{color:#ff453a}
+.log-subject.warn{color:#ffd60a}
+.log-payload{color:#888}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <span class="logo">SOVEREIGN IDE</span>
+  <span class="ver">v∞.0</span>
+  <div class="menus">
+    <span>File</span><span>Edit</span><span>View</span><span>Run</span><span>Tools</span><span>Help</span>
+  </div>
+  <div class="status">
+    <span>Mesh: <span style="color:#00ff88">ONLINE</span></span>
+    <span>NATS: <span id="nats-dot">●</span></span>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- LEFT: Project Tree -->
+  <div id="left">
+    <div class="panel-title">Project &nbsp;/&nbsp; Agents</div>
+    <div id="tree"></div>
+  </div>
+
+  <!-- CENTER: Phone -->
+  <div id="center">
+    <div id="canvas-grid"></div>
+    <div id="phone-label">Google Pixel 9 Pro &nbsp;•&nbsp; SnapKitty OS &nbsp;•&nbsp; 6.1"</div>
+
+    <div id="phone">
+      <!-- Side buttons -->
+      <div class="side-btn" style="left:-3px;top:120px"></div>
+      <div class="side-btn" style="left:-3px;top:175px"></div>
+      <div class="side-btn side-btn-right"></div>
+
+      <div id="screen">
+        <div id="punch"></div>
+
+        <!-- Status bar -->
+        <div id="statusbar">
+          <span id="clock">00:00</span>
+          <div id="status-icons">
+            <canvas id="signal-canvas" width="22" height="14"></canvas>
+            <span style="font-size:9px;color:#e8e8f0">5G</span>
+            <canvas id="battery-canvas" width="22" height="10"></canvas>
+          </div>
+        </div>
+
+        <div id="screen-content">
+
+          <!-- Incoming call overlay -->
+          <div id="incoming-call" style="display:none">
+            <div id="call-icon"></div>
+            <div id="call-name"></div>
+            <div id="call-role"></div>
+            <div id="call-label">Incoming sovereign call…</div>
+            <div id="call-btns">
+              <button id="decline-btn" style="background:#ff453a">✕</button>
+              <button id="answer-btn"  style="background:#00ff88">✓</button>
+            </div>
+          </div>
+
+          <!-- HOME SCREEN -->
+          <div id="home-screen">
+            <div id="home-label">SnapKitty OS &nbsp;•&nbsp; Tap agent to open</div>
+            <div id="app-grid"></div>
+            <div id="dock">
+              <div class="dock-icon">📞</div>
+              <div class="dock-icon">💬</div>
+              <div class="dock-icon">📷</div>
+              <div class="dock-icon">⋯</div>
+            </div>
+            <div id="navbar-home">
+              <span>◁</span><span>●</span><span>□</span>
+            </div>
+          </div>
+
+          <!-- CHAT SCREEN -->
+          <div id="chat-screen" style="display:none">
+            <div id="chat-appbar">
+              <button id="chat-back">◁</button>
+              <div id="chat-agent-icon"></div>
+              <div>
+                <div id="chat-agent-name"></div>
+                <div id="chat-agent-role"></div>
+              </div>
+              <div id="chat-status-dot"></div>
+            </div>
+            <div id="messages">
+              <div id="empty-state">
+                <div id="empty-icon"></div>
+                <div id="empty-text"></div>
+                <div id="empty-sub"></div>
+              </div>
+            </div>
+            <div id="input-bar">
+              <input id="msg-input" placeholder="Message agent…" />
+              <button id="send-btn" disabled>▶</button>
+            </div>
+            <div id="navbar-chat">
+              <span id="nav-back">◁</span>
+              <span id="nav-home-btn">●</span>
+              <span>□</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Inspector -->
+  <div id="right">
+    <div class="panel-title">Module Inspector</div>
+    <div id="inspector-card">
+      <div id="inspector-agent-row">
+        <div id="inspector-icon"></div>
+        <div>
+          <div id="inspector-name"></div>
+          <div id="inspector-role"></div>
+          <div id="inspector-group"></div>
+        </div>
+      </div>
+      <div id="props"></div>
+    </div>
+    <div id="gate-scores">
+      <div class="section-label">Gate Scores</div>
+      <div id="gates"></div>
+    </div>
+    <div id="agent-grid-panel">
+      <div class="section-label" id="agent-count"></div>
+      <div id="agent-grid-icons"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM: Logcat -->
+<div id="bottom">
+  <div id="logcat-header">
+    <span class="label">LOGCAT</span>
+    <span class="subject">snapkitty.&gt;</span>
+    <span id="nats-status" style="color:#333">○ waiting for NATS…</span>
+  </div>
+  <div id="logcat-body"></div>
+</div>
+
+<script>
+// ── Agent manifest ─────────────────────────────────────────────────────────────
+const AGENTS = [
+  {key:'ahmad',    label:'AHMAD',    role:'Root Sovereign',     color:'#ffd60a', icon:'♾',  group:'SOVEREIGN'},
+  {key:'edaulc',   label:'EDAULC',   role:'Mirror',             color:'#bf5af2', icon:'◈',  group:'SOVEREIGN'},
+  {key:'bob',      label:'BOB',      role:'Orchestrator',       color:'#00ff88', icon:'⬡',  group:'SOVEREIGN'},
+  {key:'sentinel', label:'SENTINEL', role:'Threat Watch',       color:'#ff453a', icon:'🛡', group:'SECURITY'},
+  {key:'cipher',   label:'CIPHER',   role:'Cryptographic Core', color:'#0a84ff', icon:'🔐', group:'SECURITY'},
+  {key:'veil',     label:'VEIL',     role:'OPSEC Layer',        color:'#ff453a', icon:'👁', group:'SECURITY'},
+  {key:'ward',     label:'WARD',     role:'Perimeter Guard',    color:'#ff453a', icon:'⚔', group:'SECURITY'},
+  {key:'vault',    label:'VAULT',    role:'Treasury',           color:'#ffd60a', icon:'🏦', group:'FINANCE'},
+  {key:'ledger',   label:'LEDGER',   role:'Accounting',         color:'#ffd60a', icon:'📒', group:'FINANCE'},
+  {key:'forge',    label:'FORGE',    role:'Package Mint',       color:'#ffd60a', icon:'⚒', group:'FINANCE'},
+  {key:'atlas',    label:'ATLAS',    role:'World Model',        color:'#0a84ff', icon:'🌐', group:'INTEL'},
+  {key:'oracle',   label:'ORACLE',   role:'Prediction',         color:'#bf5af2', icon:'🔮', group:'INTEL'},
+  {key:'prism',    label:'PRISM',    role:'Signal Refractor',   color:'#0a84ff', icon:'◇', group:'INTEL'},
+  {key:'lens',     label:'LENS',     role:'Vision Core',        color:'#0a84ff', icon:'🔭', group:'INTEL'},
+  {key:'herald',   label:'HERALD',   role:'Broadcast',          color:'#00ff88', icon:'📡', group:'COMMS'},
+  {key:'nova',     label:'NOVA',     role:'Creative Voice',     color:'#00ff88', icon:'✦', group:'COMMS'},
+  {key:'echo',     label:'ECHO',     role:'Resonance Check',    color:'#00ff88', icon:'∿', group:'COMMS'},
+  {key:'lyra',     label:'LYRA',     role:'Harmonic Analysis',  color:'#bf5af2', icon:'♪', group:'COMMS'},
+  {key:'mira',     label:'MIRA',     role:'Interface Mirror',   color:'#00ff88', icon:'⌘', group:'COMMS'},
+  {key:'flux',     label:'FLUX',     role:'Chaos Injector',     color:'#ff453a', icon:'⚡', group:'CHAOS'},
+  {key:'storm',    label:'STORM',    role:'Pressure Test',      color:'#ff453a', icon:'🌪', group:'CHAOS'},
+  {key:'phantom',  label:'PHANTOM',  role:'Shadow Runner',      color:'#ff453a', icon:'◉', group:'CHAOS'},
+  {key:'shade',    label:'SHADE',    role:'Dark Pattern',       color:'#ff453a', icon:'⬟', group:'CHAOS'},
+  {key:'nexus',    label:'NEXUS',    role:'Mesh Hub',           color:'#bf5af2', icon:'⬡', group:'BRIDGE'},
+  {key:'bridge',   label:'BRIDGE',   role:'Protocol Bridge',    color:'#bf5af2', icon:'⇌', group:'BRIDGE'},
+  {key:'dawn',     label:'DAWN',     role:'Cold Boot',          color:'#ffd60a', icon:'☀', group:'BRIDGE'},
+  {key:'ember',    label:'EMBER',    role:'Warm Restart',       color:'#ffd60a', icon:'🔥', group:'BRIDGE'},
+  {key:'axiom',    label:'AXIOM',    role:'Logic Core',         color:'#0a84ff', icon:'∴', group:'CORE'},
+  {key:'mnemex',   label:'MNEMEX',   role:'Memory Engine',      color:'#bf5af2', icon:'⊛', group:'CORE'},
+  {key:'stalas',   label:'STALAS',   role:'Stability Gate',     color:'#00ff88', icon:'⊕', group:'CORE'},
+  {key:'loc',      label:'LOC',      role:'Line of Code',       color:'#444',    icon:'{}',group:'CORE'},
+  {key:'metatron', label:'METATRON', role:'First Persona',      color:'#bf5af2', icon:'✦', group:'LEGACY'},
+  {key:'enki',     label:'ENKI',     role:'Sumerian Core',      color:'#ffd60a', icon:'𒀭',group:'LEGACY'},
+  {key:'influence',label:'INFLUENCE',role:'Network Reach',      color:'#0a84ff', icon:'∞', group:'LEGACY'},
+]
+
+const GROUPS = ['SOVEREIGN','SECURITY','FINANCE','INTEL','COMMS','CHAOS','BRIDGE','CORE','LEGACY']
+const HOME_KEYS = ['ahmad','sentinel','vault','atlas','herald','cipher','oracle','bob','nova','forge','nexus','axiom']
+const API = 'https://collectivekitty.com/api/agents/chat'
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let activeAgent = AGENTS[0]
+let screen = 'home'
+let messages = {}   // key → [{role,text,ts}]
+let expanded = {SOVEREIGN:true}
+let loading = false
+
+// ── Clock ──────────────────────────────────────────────────────────────────────
+function drawClock() {
+  const t = new Date()
+  document.getElementById('clock').textContent =
+    String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0')
+}
+drawClock(); setInterval(drawClock, 1000)
+
+// ── Signal bars ────────────────────────────────────────────────────────────────
+function drawSignal() {
+  const c = document.getElementById('signal-canvas')
+  const ctx = c.getContext('2d')
+  ctx.clearRect(0,0,22,14)
+  for (let i=1;i<=4;i++) {
+    const h = 3 + i*2
+    ctx.fillStyle = '#e8e8f0'
+    ctx.beginPath(); ctx.roundRect(i*4-2,14-h,3,h,1); ctx.fill()
+  }
+}
+drawSignal()
+
+// ── Battery ────────────────────────────────────────────────────────────────────
+function drawBattery(pct) {
+  const c = document.getElementById('battery-canvas')
+  const ctx = c.getContext('2d')
+  ctx.clearRect(0,0,22,10)
+  ctx.strokeStyle = '#e8e8f0'; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.roundRect(0,1,18,8,2); ctx.stroke()
+  ctx.fillStyle = '#333'; ctx.fillRect(19,3,2,4)
+  ctx.fillStyle = pct > 20 ? '#00ff88' : '#ff453a'
+  ctx.beginPath(); ctx.roundRect(1,2,Math.round(16*pct/100),6,1); ctx.fill()
+}
+drawBattery(87)
+
+// ── Build project tree ─────────────────────────────────────────────────────────
+function buildTree() {
+  const tree = document.getElementById('tree')
+  tree.innerHTML = ''
+  GROUPS.forEach(g => {
+    const groupAgents = AGENTS.filter(a => a.group === g)
+    if (!groupAgents.length) return
+    const hdr = document.createElement('div')
+    hdr.className = 'group-header' + (expanded[g] ? ' open' : '')
+    hdr.innerHTML = `<span class="arrow">▶</span>${g}<span class="count">${groupAgents.length}</span>`
+    hdr.addEventListener('click', () => {
+      expanded[g] = !expanded[g]
+      buildTree()
+    })
+    tree.appendChild(hdr)
+    if (expanded[g]) {
+      groupAgents.forEach(a => {
+        const row = document.createElement('div')
+        row.className = 'agent-row' + (activeAgent.key===a.key&&screen==='chat'?' active':'') + ((messages[a.key]?.length)?' has-msgs':'')
+        row.style.setProperty('--agent-color', a.color)
+        row.innerHTML = `<span style="font-size:12px">${a.icon}</span><span class="name">${a.label}</span><span class="dot"></span>`
+        row.addEventListener('click', () => openChat(a))
+        tree.appendChild(row)
+      })
+    }
+  })
+}
+
+// ── Build home screen ──────────────────────────────────────────────────────────
+function buildHome() {
+  const grid = document.getElementById('app-grid')
+  grid.innerHTML = ''
+  HOME_KEYS.forEach(k => {
+    const a = AGENTS.find(x=>x.key===k)
+    if (!a) return
+    const div = document.createElement('div')
+    div.className = 'app-icon'
+    div.innerHTML = `
+      <div class="icon-wrap" style="background:color-mix(in srgb,${a.color} 15%,transparent);border:1px solid color-mix(in srgb,${a.color} 40%,transparent)">${a.icon}</div>
+      <span>${a.label}</span>`
+    div.addEventListener('click', () => openChat(a))
+    grid.appendChild(div)
+  })
+}
+
+// ── Build inspector ────────────────────────────────────────────────────────────
+function buildInspector() {
+  const a = activeAgent
+  document.getElementById('inspector-icon').style.cssText = `width:36px;height:36px;border-radius:10px;background:color-mix(in srgb,${a.color} 15%,transparent);border:1px solid ${a.color};display:flex;align-items:center;justify-content:center;font-size:18px`
+  document.getElementById('inspector-icon').textContent = a.icon
+  document.getElementById('inspector-name').style.cssText = `font-size:11px;font-weight:700;color:${a.color}`
+  document.getElementById('inspector-name').textContent = a.label
+  document.getElementById('inspector-role').style.cssText = 'font-size:8.5px;color:#888'
+  document.getElementById('inspector-role').textContent = a.role
+  document.getElementById('inspector-group').style.cssText = 'font-size:7.5px;color:#444'
+  document.getElementById('inspector-group').textContent = 'Group: ' + a.group
+
+  const props = [
+    ['Key', a.key],['Status','ACTIVE'],['Protocol','SOVEREIGN/1.0'],
+    ['Deed','WORM-sealed'],['Gate','OPSEC + Resonance'],['Messages', String(messages[a.key]?.length??0)]
+  ]
+  document.getElementById('props').innerHTML = props.map(([k,v]) =>
+    `<div class="prop-row"><span class="prop-key">${k}</span><span class="prop-val${k==='Status'?' online':''}">${v}</span></div>`
+  ).join('')
+
+  const gates = [
+    {label:'OPSEC',val:100,color:'#00ff88'},
+    {label:'Resonance',val:92,color:'#bf5af2'},
+    {label:'Trust',val:97,color:'#0a84ff'},
+    {label:'Entropy',val:8,color:'#ff453a'},
+  ]
+  document.getElementById('gates').innerHTML = gates.map(g =>
+    `<div class="gate-row">
+      <div class="gate-header"><span class="gate-label">${g.label}</span><span class="gate-val" style="color:${g.color}">${g.val}%</span></div>
+      <div class="gate-bar-bg"><div class="gate-bar-fill" style="width:${g.val}%;background:${g.color}"></div></div>
+    </div>`
+  ).join('')
+
+  document.getElementById('agent-count').textContent = `ALL AGENTS (${AGENTS.length})`
+  document.getElementById('agent-grid-icons').innerHTML = AGENTS.map(ag =>
+    `<div class="grid-icon" title="${ag.label} — ${ag.role}"
+         style="background:color-mix(in srgb,${ag.color} ${activeAgent.key===ag.key?'25':'8'}%,transparent);border:1px solid color-mix(in srgb,${ag.color} ${activeAgent.key===ag.key?'100':'20'}%,transparent)"
+         data-key="${ag.key}">${ag.icon}</div>`
+  ).join('')
+  document.getElementById('agent-grid-icons').querySelectorAll('.grid-icon').forEach(el => {
+    el.addEventListener('click', () => openChat(AGENTS.find(a=>a.key===el.dataset.key)))
+  })
+
+  // Phone glow
+  document.getElementById('phone').style.boxShadow =
+    `0 0 0 2px #333,0 0 0 4px #222,0 30px 80px rgba(0,0,0,.8),0 0 40px ${a.color}33`
+}
+
+// ── Open chat ──────────────────────────────────────────────────────────────────
+function openChat(a) {
+  activeAgent = a
+  screen = 'chat'
+  document.getElementById('incoming-call').style.display = 'none'
+
+  // Update chat appbar
+  document.getElementById('chat-back').style.color = a.color
+  document.getElementById('chat-agent-icon').style.cssText = `width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,${a.color} 15%,transparent);border:1px solid ${a.color};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0`
+  document.getElementById('chat-agent-icon').textContent = a.icon
+  document.getElementById('chat-agent-name').style.cssText = `font-size:11px;font-weight:700;color:${a.color}`
+  document.getElementById('chat-agent-name').textContent = a.label
+  document.getElementById('chat-agent-role').textContent = a.role
+  document.getElementById('send-btn').style.background = a.color
+  document.getElementById('msg-input').placeholder = `Message ${a.label}…`
+
+  // Empty state
+  document.getElementById('empty-icon').textContent = a.icon
+  document.getElementById('empty-text').textContent = `Open channel with ${a.label}`
+  document.getElementById('empty-sub').style.cssText = `color:${a.color};margin-top:4px;font-size:8px`
+  document.getElementById('empty-sub').textContent = a.role
+
+  // Bubble style
+  document.querySelectorAll('.bubble.agent').forEach(b => {
+    b.style.background = `color-mix(in srgb,${a.color} 12%,transparent)`
+    b.style.border = `1px solid color-mix(in srgb,${a.color} 25%,transparent)`
+  })
+
+  renderMessages()
+  showScreen('chat')
+  buildTree()
+  buildInspector()
+}
+
+function goHome() {
+  screen = 'home'
+  showScreen('home')
+  buildTree()
+}
+
+function showScreen(s) {
+  document.getElementById('home-screen').style.display = s==='home' ? 'flex' : 'none'
+  document.getElementById('chat-screen').style.display = s==='chat' ? 'flex' : 'none'
+}
+
+// ── Render messages ────────────────────────────────────────────────────────────
+function renderMessages() {
+  const a = activeAgent
+  const msgs = messages[a.key] ?? []
+  const container = document.getElementById('messages')
+  const empty = document.getElementById('empty-state')
+  empty.style.display = msgs.length ? 'none' : 'block'
+
+  // Remove all message elements
+  container.querySelectorAll('.msg,.typing-bubble-wrap').forEach(el => el.remove())
+
+  msgs.forEach(m => {
+    const div = document.createElement('div')
+    div.className = 'msg ' + m.role
+    const bub = document.createElement('div')
+    bub.className = 'bubble ' + m.role
+    if (m.role === 'agent') {
+      bub.style.background = `color-mix(in srgb,${a.color} 12%,transparent)`
+      bub.style.border = `1px solid color-mix(in srgb,${a.color} 25%,transparent)`
+    }
+    bub.textContent = m.text
+    div.appendChild(bub)
+    container.appendChild(div)
+  })
+
+  if (loading) {
+    const t = document.createElement('div')
+    t.className = 'msg agent typing-bubble-wrap'
+    const b = document.createElement('div')
+    b.className = 'typing-bubble'
+    b.style.cssText = `background:color-mix(in srgb,${a.color} 12%,transparent);border:1px solid color-mix(in srgb,${a.color} 25%,transparent);color:${a.color}`
+    b.textContent = '···'
+    t.appendChild(b); container.appendChild(t)
+  }
+  container.scrollTop = container.scrollHeight
+}
+
+// ── Send message ───────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('msg-input')
+  const text = input.value.trim()
+  if (!text || loading) return
+  input.value = ''
+  loading = true
+  updateSendBtn()
+
+  const a = activeAgent
+  if (!messages[a.key]) messages[a.key] = []
+  messages[a.key].push({role:'user', text, ts:Date.now()})
+  renderMessages()
+
+  try {
+    const history = messages[a.key].map(m => ({role: m.role==='user'?'user':'assistant', content: m.text}))
+    const res = await fetch(API, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({agent: a.key, messages: history})
+    })
+    const data = await res.json()
+    const reply = data.content ?? data.message ?? data.text ?? data.error ?? '…'
+    messages[a.key].push({role:'agent', text:reply, ts:Date.now()})
+  } catch(e) {
+    messages[a.key].push({role:'agent', text:'Connection error — agent offline.', ts:Date.now()})
+  }
+  loading = false
+  updateSendBtn()
+  renderMessages()
+  buildTree() // refresh dot indicators
+  buildInspector() // refresh message count
+}
+
+function updateSendBtn() {
+  const btn = document.getElementById('send-btn')
+  const input = document.getElementById('msg-input')
+  btn.disabled = loading || !input.value.trim()
+}
+
+// ── NATS logcat ────────────────────────────────────────────────────────────────
+let natsCount = 0
+function connectNats() {
+  const es = new EventSource('https://collectivekitty.com/api/nats/stream?subject=snapkitty.>')
+  es.addEventListener('message', e => {
+    try {
+      const d = JSON.parse(e.data)
+      natsCount++
+      const level = (d.subject||'').includes('error')?'error':(d.subject||'').includes('warn')?'warn':'info'
+      const ts = new Date().toLocaleTimeString('en-US',{hour12:false})
+      const entry = document.createElement('div')
+      entry.className = 'log-entry'
+      entry.innerHTML = `<span class="log-ts">${ts}</span>&nbsp;&nbsp;<span class="log-subject ${level}">${d.subject??'snapkitty.event'}</span>&nbsp;&nbsp;<span class="log-payload">${JSON.stringify(d.data??d).slice(0,120)}</span>`
+      const body = document.getElementById('logcat-body')
+      body.insertBefore(entry, body.firstChild)
+      while (body.children.length > 80) body.removeChild(body.lastChild)
+      document.getElementById('nats-status').style.color = '#00ff88'
+      document.getElementById('nats-status').textContent = `● ${natsCount} events`
+      document.getElementById('nats-dot').style.color = '#00ff88'
+    } catch {}
+  })
+  es.onerror = () => {
+    document.getElementById('nats-dot').style.color = '#ff453a'
+  }
+}
+
+// ── Event wiring ───────────────────────────────────────────────────────────────
+document.getElementById('chat-back').addEventListener('click', goHome)
+document.getElementById('nav-back').addEventListener('click', goHome)
+document.getElementById('nav-home-btn').addEventListener('click', goHome)
+document.getElementById('send-btn').addEventListener('click', sendMessage)
+document.getElementById('msg-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+})
+document.getElementById('msg-input').addEventListener('input', updateSendBtn)
+
+document.getElementById('answer-btn').addEventListener('click', () => {
+  const callName = document.getElementById('call-name').dataset.key
+  const a = AGENTS.find(x=>x.key===callName)
+  if (a) openChat(a)
+  document.getElementById('incoming-call').style.display = 'none'
+})
+document.getElementById('decline-btn').addEventListener('click', () => {
+  document.getElementById('incoming-call').style.display = 'none'
+})
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+buildTree()
+buildHome()
+buildInspector()
+showScreen('home')
+connectNats()
+</script>
+</body>
+</html>
