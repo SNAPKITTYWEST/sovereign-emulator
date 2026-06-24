@@ -650,6 +650,66 @@ function updateSendBtn() {
   btn.disabled = loading || !input.value.trim()
 }
 
+// ── Sovereign feed — Discord · Telegram · Council · Nova ──────────────────────
+const MESH = 'https://sovereign-mesh.snapkittywest.workers.dev'
+let feedSince = 0
+
+const SOURCE_AGENT = { discord: 'herald', telegram: 'nova', council: 'bob', nova: 'bob' }
+const SOURCE_ICON  = { discord: '📡', telegram: '✈', council: '⬡', nova: '✦' }
+const SOURCE_COLOR = { discord: '#5865F2', telegram: '#229ED9', council: '#00ff88', nova: '#bf5af2' }
+
+function logFeedEvent(ev) {
+  const ts    = new Date(ev.ts).toLocaleTimeString('en-US',{hour12:false})
+  const icon  = SOURCE_ICON[ev.source] || '◌'
+  const color = SOURCE_COLOR[ev.source] || '#888'
+  const entry = document.createElement('div')
+  entry.className = 'log-entry'
+  entry.innerHTML = `<span class="log-ts">${ts}</span>&nbsp;&nbsp;<span class="log-subject" style="color:${color}">${icon} ${ev.source.toUpperCase()}</span>&nbsp;&nbsp;<span class="log-payload">${(ev.payload?.text || ev.type || '').slice(0,100)}</span>`
+  const body = document.getElementById('logcat-body')
+  body.insertBefore(entry, body.firstChild)
+  while (body.children.length > 80) body.removeChild(body.lastChild)
+  document.getElementById('nats-status').textContent = '● live'
+  document.getElementById('nats-status').style.color = '#00ff88'
+}
+
+function routeToChat(ev) {
+  const agentKey = SOURCE_AGENT[ev.source]
+  if (!agentKey || !ev.payload?.text) return
+  if (!messages[agentKey]) messages[agentKey] = []
+  messages[agentKey].push({ role: 'agent', text: (SOURCE_ICON[ev.source]||'') + ' ' + ev.payload.text, ts: Date.now() })
+  // Show dot on agent row
+  const row = document.querySelector(`.agent-row[data-key="${agentKey}"]`)
+  if (row) row.classList.add('has-msgs')
+  // If this agent is open, append to messages
+  if (screen === 'chat' && activeAgent?.key === agentKey) {
+    const msgs = document.getElementById('messages')
+    const bubble = document.createElement('div')
+    bubble.className = 'msg agent'
+    bubble.innerHTML = `<div class="bubble agent" style="background:color-mix(in srgb,${SOURCE_COLOR[ev.source]} 15%,#131318)">${ev.payload.text}</div>`
+    msgs.appendChild(bubble)
+    msgs.scrollTop = msgs.scrollHeight
+  }
+}
+
+function pollFeed() {
+  fetch(`${MESH}/feed?since=${feedSince}`)
+    .then(r => r.json())
+    .then(d => {
+      if (!d.events?.length) return
+      d.events.sort((a,b) => a.id - b.id).forEach(ev => {
+        logFeedEvent(ev)
+        routeToChat(ev)
+        if (ev.id > feedSince) feedSince = ev.id
+      })
+    })
+    .catch(() => {})
+}
+
+function startFeed() {
+  pollFeed()
+  setInterval(pollFeed, 10000)
+}
+
 // ── NATS logcat ────────────────────────────────────────────────────────────────
 let natsCount = 0
 function connectNats() {
@@ -702,6 +762,7 @@ buildHome()
 buildInspector()
 showScreen('home')
 connectNats()
+startFeed()
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(function(){})
 }
