@@ -2,8 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>SnapKitty — Sovereign Agent Emulator</title>
+<!-- PWA — iOS installable -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="SnapKitty" />
+<meta name="theme-color" content="#7c3aed" />
+<link rel="manifest" href="manifest.json" />
+<script>
+(function(){
+  var c=document.createElement('canvas');c.width=c.height=192;
+  var x=c.getContext('2d');
+  x.fillStyle='#04040a';x.fillRect(0,0,192,192);
+  x.fillStyle='#7c3aed';x.beginPath();x.arc(96,96,80,0,Math.PI*2);x.fill();
+  x.fillStyle='#fff';x.font='bold 72px monospace';x.textAlign='center';x.textBaseline='middle';
+  x.fillText('⬡',96,100);
+  var png=c.toDataURL('image/png');
+  var l=document.createElement('link');l.rel='apple-touch-icon';l.href=png;
+  document.head.appendChild(l);
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
@@ -647,6 +666,9 @@ buildHome()
 buildInspector()
 showScreen('home')
 connectNats()
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(function(){})
+}
 </script>
 </body>
 </html>
