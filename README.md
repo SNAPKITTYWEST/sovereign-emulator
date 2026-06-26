@@ -166,3 +166,5 @@ Not "our AI is safe."
 ⬡  collectivekitty.com · github.com/SNAPKITTYWEST
 ⬡  CC0 — no rights reserved — emulate freely
 ```
+
+![](https://sovereign-analytics.snapkittywest.workers.dev/canary/sovereign-emulator)
